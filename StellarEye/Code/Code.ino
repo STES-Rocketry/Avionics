@@ -19,14 +19,14 @@ SDA = GPIO21
 
 NEO GPS
 VCC = 3V3
-RX = GPIO2
-TX = GPIO4
+RX = GPI17
+TX = GPI16
 GND = GND
 
 Xbee 
 VCC = 3V3 (sheild)
-RX = GPIO17
-TX = GPIO16
+RX = GPIO04
+TX = GPIO02
 Gnd = Gnd
 
 SD Card Reader
