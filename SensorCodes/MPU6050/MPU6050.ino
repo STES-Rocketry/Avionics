@@ -68,4 +68,6 @@ void getMpuData(){
   Serial.print("           Rotation_z     : ");
   Serial.print(rotation_z);
   Serial.println(" deg");
+
+  Serial.println();
 }
