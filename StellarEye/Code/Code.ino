@@ -74,7 +74,7 @@ TaskHandle_t task_loop1;
 int buzzer=13,led=15,drogue_pin=12,main_pin=14;
 const int CS=5,n=15;
 String dataFile="/data.txt",logFile="/log.txt";
-float pressure,curr_altitude=0,last_altitude,temperature,acc_x,acc_y,acc_z,rot_x,rot_y,rot_z,latitude,longitude,avg=0,apogee,apogee1,drogue_deployed,drogue_deployed1,main_deployed,main_deployed1,down,up,main_altitude=1500;
+float pressure,curr_altitude=0,prev_altitude,temperature,acc_x,acc_y,acc_z,rot_x,rot_y,rot_z,latitude,longitude,avg=0,apogee,drogue_deployed,main_deployed,curr,prev,main_altitude=1500;
 bool flag_drogue=false,flag_main=false;
 
 void esploop1(void* pvParameters){
@@ -87,7 +87,7 @@ void esploop1(void* pvParameters){
 
 void setup() {
   delay(5000);
-  xTaskCreatePinnedToCore(esploop1,"loop1",10000,NULL,1,&task_loop1,!ARDUINO_RUNNING_CORE);  
+  xTaskCreatePinnedToCore(esploop1,"loop1",10000,NULL,1,&task_loop1,!ARDUINO_RUNNING_CORE);
 
   pinMode(buzzer,OUTPUT);
   pinMode(led,OUTPUT);
@@ -119,11 +119,15 @@ void setup() {
     SD.remove(dataFile);
   }
 
+  delay(1000);
+
   if(SD.exists(logFile)){
     Serial.println("Deleting the log file! \n");
     SD.remove(logFile);
   }
 
+  delay(1000);
+  
   myFile=SD.open(logFile,FILE_APPEND);
 
   if(myFile){
@@ -184,13 +188,11 @@ void setup() {
 }
 
 void setup1(){
-
   pinMode(drogue_pin,OUTPUT);
   pinMode(main_pin,OUTPUT);
 
   digitalWrite(drogue_pin,LOW);
   digitalWrite(main_pin,LOW);
-
 }
 
 void loop() {
@@ -208,55 +210,90 @@ void loop() {
 
     }
   }
-  delay(50);  
+  delay(50);
 }
+
 
 void loop1(){
   if(!flag_drogue){
-    apogee=apogee_func();
+    apogee_func();
   }
   else if(flag_drogue && !flag_main){
     if(curr_altitude<=main_altitude){
-      main_deployed=main_func(main_altitude);
+      main_func();
     }
   }
 }
 
-void getBmpData(){
+void apogee_func(){
+  if(curr_altitude<prev_altitude){
+    apogee=prev_altitude;
+    curr=curr_altitude;
+    prev=prev_altitude;
+    for(int i=0;i<n;i++){
+      avg=avg+(curr-prev);
+      prev=curr;
+      delay(200);
+      curr=curr_altitude;
+    }
+    avg=avg/n;
+    if(int(avg)<0){
+      drogue_func();
+    }
+    else{
+      avg=0;
+    }
+  }
+}
 
-  last_altitude=curr_altitude;
+void drogue_func(){
+  digitalWrite(buzzer,HIGH);
+  digitalWrite(led,HIGH);
+  digitalWrite(drogue_pin,HIGH);
+  drogue_deployed=curr_altitude;
+  delay(10000);
+  digitalWrite(drogue_pin,LOW);
+  digitalWrite(led,LOW);
+  digitalWrite(buzzer,LOW);
+  flag_drogue=true;
+}
+
+void main_func(){  
+  digitalWrite(buzzer,HIGH);
+  digitalWrite(led,HIGH);
+  digitalWrite(main_pin,HIGH);
+  main_deployed=curr_altitude;
+  delay(10000);
+  digitalWrite(main_pin,LOW);
+  digitalWrite(led,LOW);
+  digitalWrite(buzzer,LOW);
+  flag_main=true;
+}
+
+void getBmpData(){
+  prev_altitude=curr_altitude;
 
   pressure=bmp.readPressure();
   curr_altitude=bmp.readAltitude()*3.28084;
   temperature=bmp.readTemperature();
 
-  Serial.print("Pressure : ");
   Serial.print(pressure);
-  Serial.println(" Pa");
+  Serial.print(",");
   
-  Serial.print("Altitude : ");
   Serial.print(curr_altitude);
-  Serial.println(" ft");
+  Serial.print(",");
 
-  Serial.print("Temperature : ");
   Serial.print(temperature);
-  Serial.println(" C");
+  Serial.print(",");
 
-  Serial.println();
-
-  myFile.print("Pressure : ");
   myFile.print(pressure);
-  myFile.println(" Pa");
+  myFile.print(",");
   
-  myFile.print("Altitude : ");
   myFile.print(curr_altitude);
-  myFile.println(" ft");
+  myFile.print(",");
 
-  myFile.print("Temperature : ");
   myFile.print(temperature);
-  myFile.println(" C");
-
-  myFile.println();
+  myFile.print(",");
 }
 
 void getMpuData(){
@@ -272,57 +309,42 @@ void getMpuData(){
   rot_y=g.gyro.y;
   rot_z=g.gyro.z;
 
-  Serial.print("Acceleration_x : ");
   Serial.print(acc_x);
-  Serial.print(" m/s2");
+  Serial.print(",");
     
-  Serial.print("          Acceleration_y : ");
   Serial.print(acc_y);
-  Serial.print(" m/s2");
+  Serial.print(",");
   
-  Serial.print("          Acceleration_z : ");
   Serial.print(acc_z);
-  Serial.println(" m/s2");
+  Serial.print(",");
   
-  Serial.print("Rotation_x     : ");
   Serial.print(rot_x);
-  Serial.print(" deg");
+  Serial.print(",");
   
-  Serial.print("          Rotation_y     : ");
   Serial.print(rot_y);
-  Serial.print(" deg");
+  Serial.print(",");
   
-  Serial.print("           Rotation_z     : ");
   Serial.print(rot_z);
-  Serial.println(" deg");
+  Serial.print(",");
 
-  Serial.println();
-
-  myFile.print("Acceleration_x : ");
   myFile.print(acc_x);
-  myFile.print(" m/s2");
+  myFile.print(",");
     
-  myFile.print("          Acceleration_y : ");
   myFile.print(acc_y);
-  myFile.print(" m/s2");
+  myFile.print(",");
   
-  myFile.print("          Acceleration_z : ");
   myFile.print(acc_z);
-  myFile.println(" m/s2");
+  myFile.print(",");
   
-  myFile.print("Rotation_x     : ");
   myFile.print(rot_x);
-  myFile.print(" deg");
+  myFile.print(",");
   
-  myFile.print("          Rotation_y     : ");
   myFile.print(rot_y);
-  myFile.print(" deg");
+  myFile.print(",");
   
-  myFile.print("           Rotation_z     : ");
   myFile.print(rot_z);
-  myFile.println(" deg");
+  myFile.print(",");
 
-  myFile.println();
 }
 
 void getGpsData(){
@@ -336,73 +358,13 @@ void getGpsData(){
     }
   } 
 
-  Serial.print("Latitude : ");
   Serial.print(latitude,6);
-  Serial.println(" deg");
+  Serial.print(",");
 
-  Serial.print("Longitude : ");
-  Serial.print(longitude,6);
-  Serial.println(" deg");
+  Serial.println(longitude,6);
 
-  Serial.println();
-
-  myFile.print("Latitude : ");
   myFile.print(latitude,6);
-  myFile.println(" deg");
+  myFile.print(",");
 
-  myFile.print("Longitude : ");
-  myFile.print(longitude,6);
-  myFile.println(" deg");
-
-  myFile.println();
-}
-
-float apogee_func(){
-  if(curr_altitude<last_altitude){
-    apogee1=last_altitude;
-    down=curr_altitude;
-    up=last_altitude;
-    for(int i=0;i<n;i++){
-      avg=avg+(down-up);
-      up=down;
-      delay(200);
-      down=curr_altitude;
-    }
-    avg=avg/n;
-    if(int(avg)<0){
-      drogue_deployed=drogue_func();
-    }
-    else{
-      avg=0;
-    }
-    return apogee1;
-  }
-}
-
-float drogue_func(){
-  digitalWrite(buzzer,HIGH);
-  digitalWrite(led,HIGH);
-  digitalWrite(drogue_pin,HIGH);
-  drogue_deployed1=curr_altitude;
-  delay(10000);
-  digitalWrite(drogue_pin,LOW);
-  digitalWrite(led,LOW);
-  digitalWrite(buzzer,LOW);
-  flag_drogue=true;
-
-  return drogue_deployed1;
-}
-
-float main_func(int main_altitude){  
-  digitalWrite(buzzer,HIGH);
-  digitalWrite(led,HIGH);
-  digitalWrite(main_pin,HIGH);
-  main_deployed1=curr_altitude;
-  delay(10000);
-  digitalWrite(main_pin,LOW);
-  digitalWrite(led,LOW);
-  digitalWrite(buzzer,LOW);
-  flag_main=true;
-  
-  return main_deployed1;
+  myFile.println(longitude,6);
 }
